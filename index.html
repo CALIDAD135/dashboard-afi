@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Dashboard AFI – Control Vehicular | IES Internacional</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root{
+  --bg:#06080f;--surf:#0d1220;--surf2:#121929;--surf3:#1a2338;
+  --border:#1e2d45;--border2:#253450;
+  --acc:#2563eb;--acc2:#10b981;--warn:#f59e0b;--danger:#ef4444;--purple:#8b5cf6;
+  --text:#dde4f0;--sub:#7a8fae;--hint:#4a5e7a;
+  --circ:#10b981;--tall:#f59e0b;--sini:#ef4444;--res:#2563eb;--vac:#8b5cf6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px}
+
+.hdr{background:var(--surf);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+.hdr-l{display:flex;align-items:center;gap:14px}
+.logo-box{width:32px;height:32px;background:var(--acc);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;flex-shrink:0}
+.hdr-title{font-size:14px;font-weight:600;line-height:1.2}
+.hdr-sub{font-size:10px;color:var(--sub);margin-top:1px}
+.hdr-r{display:flex;align-items:center;gap:10px}
+.pill-date{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--sub);background:var(--surf2);border:1px solid var(--border);padding:4px 11px;border-radius:20px}
+.pill-status{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:4px 11px;border-radius:20px}
+.pill-status.ok{color:var(--acc2);background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2)}
+.pill-status.loading{color:var(--warn);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2)}
+.pill-status.err{color:var(--danger);background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2)}
+
+.fbar{background:var(--surf);border-bottom:1px solid var(--border);padding:8px 24px;display:none;gap:8px;align-items:center;flex-wrap:wrap}
+.fbar.show{display:flex}
+.fbar select{background:var(--surf2);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:6px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;min-width:140px;cursor:pointer}
+.fbar select:focus{outline:none;border-color:var(--acc)}
+.btn-reset{background:transparent;color:var(--sub);border:1px solid var(--border);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;transition:.15s}
+.btn-reset:hover{color:var(--text);border-color:var(--border2)}
+.fbar-count{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--hint);margin-left:auto}
+
+.breadcrumb{display:none;align-items:center;gap:8px;padding:6px 24px;background:var(--surf2);border-bottom:1px solid var(--border);font-size:11px;color:var(--sub)}
+.breadcrumb.show{display:flex}
+.bc-tag{background:var(--surf3);border:1px solid var(--border2);padding:3px 10px;border-radius:20px;color:var(--text);font-size:11px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:5px}
+.bc-tag:hover{border-color:var(--danger);color:var(--danger)}
+.bc-clear{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--sub);padding:3px 10px;border-radius:20px;font-size:11px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:.15s}
+.bc-clear:hover{border-color:var(--danger);color:var(--danger)}
+
+/* LOADING SCREEN */
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - 54px);gap:16px;color:var(--sub)}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-screen p{font-size:13px}
+.loading-screen small{font-size:11px;color:var(--hint)}
+
+/* ERROR SCREEN */
+.error-screen{display:none;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - 54px);gap:14px;color:var(--hint)}
+.error-screen p{font-size:14px;color:var(--danger)}
+.error-screen small{font-size:11px;text-align:center;max-width:440px;line-height:1.6;color:var(--sub)}
+
+.main{padding:16px 24px;display:none;flex-direction:column;gap:14px}
+.main.show{display:flex}
+
+.alerts{display:flex;gap:8px;flex-wrap:wrap}
+.apill{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500}
+.apill.ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);color:var(--circ)}
+.apill.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);color:var(--warn)}
+.apill.danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:var(--danger)}
+.apill.info{background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.2);color:var(--acc)}
+
+.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.kpi{background:var(--surf);border:1px solid var(--border);border-radius:9px;padding:13px 15px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--hint)}
+.kpi.ok::after{background:var(--circ)}.kpi.warn::after{background:var(--warn)}
+.kpi.danger::after{background:var(--danger)}.kpi.info::after{background:var(--acc)}
+.kpi.purple::after{background:var(--purple)}
+.kpi-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--sub);margin-bottom:5px}
+.kpi-n{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:500;line-height:1}
+.kpi-n.ok{color:var(--circ)}.kpi-n.warn{color:var(--warn)}.kpi-n.danger{color:var(--danger)}
+.kpi-n.info{color:var(--acc)}.kpi-n.purple{color:var(--purple)}
+.kpi-sub{font-size:10px;color:var(--hint);margin-top:4px}
+
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+
+.cc{background:var(--surf);border:1px solid var(--border);border-radius:9px;padding:16px;transition:border-color .2s}
+.cc.clickable{cursor:pointer}.cc.clickable:hover{border-color:var(--border2)}
+.cc.active-drill{border-color:var(--acc)!important;box-shadow:0 0 0 1px var(--acc)}
+.cc-title{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);font-weight:500;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.cc-title-l{display:flex;align-items:center;gap:6px}
+.cc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.cc-hint{font-size:9px;color:var(--hint);font-style:italic}
+
+.leg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.leg-i{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--sub)}
+.leg-sq{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+.sbar-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto}
+.sbar-list::-webkit-scrollbar{width:3px}.sbar-list::-webkit-scrollbar-thumb{background:var(--border2)}
+.sbar-row{display:flex;align-items:center;gap:8px}
+.sbar-lbl{width:100px;font-size:10px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.sbar-track{flex:1;height:7px;background:var(--surf3);border-radius:3px;overflow:hidden}
+.sbar-fill{height:100%;border-radius:3px;transition:width .4s}
+.sbar-val{min-width:38px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:10px}
+
+.dbar-list{display:flex;flex-direction:column;gap:7px}
+.dbar-row{display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:5px;padding:3px 4px;transition:background .15s}
+.dbar-row:hover{background:var(--surf2)}.dbar-row.selected{background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.25)}
+.dbar-lbl{width:100px;font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.dbar-track{flex:1;height:10px;background:var(--surf3);border-radius:4px;overflow:hidden}
+.dbar-fill{height:100%;border-radius:4px;transition:width .4s,opacity .2s}
+.dbar-n{min-width:24px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500}
+
+.drill-panel{display:none;background:var(--surf2);border:1px solid var(--acc);border-radius:9px;padding:16px;animation:slideIn .2s ease}
+.drill-panel.show{display:block}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.drill-panel-title{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--acc);font-weight:500;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.drill-close{background:transparent;border:none;color:var(--sub);font-size:16px;cursor:pointer;line-height:1}
+.drill-close:hover{color:var(--danger)}
+.drill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.drill-kpi{background:var(--surf);border:1px solid var(--border);border-radius:7px;padding:10px 12px}
+.drill-kpi-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);margin-bottom:3px}
+.drill-kpi-val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500}
+.drill-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.tbl-card{background:var(--surf);border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.tbl-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.tbl-hdr-title{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);font-weight:500}
+.tbl-count{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--hint)}
+.tbl-wrap{overflow-x:auto;max-height:320px;overflow-y:auto}
+.tbl-wrap::-webkit-scrollbar{height:3px;width:3px}.tbl-wrap::-webkit-scrollbar-thumb{background:var(--border2)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:var(--surf2);position:sticky;top:0;z-index:2;padding:8px 12px;text-align:left;font-weight:500;font-size:9px;color:var(--hint);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody td{padding:7px 12px;border-bottom:1px solid rgba(30,45,69,.6);white-space:nowrap;color:var(--text)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surf2)}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:500}
+.badge::before{content:'';width:4px;height:4px;border-radius:50%;flex-shrink:0}
+.bc{background:rgba(16,185,129,.1);color:#10b981}.bc::before{background:#10b981}
+.bt{background:rgba(245,158,11,.1);color:#f59e0b}.bt::before{background:#f59e0b}
+.bs{background:rgba(239,68,68,.1);color:#ef4444}.bs::before{background:#ef4444}
+.br{background:rgba(37,99,235,.1);color:#2563eb}.br::before{background:#2563eb}
+.bv{background:rgba(139,92,246,.1);color:#8b5cf6}.bv::before{background:#8b5cf6}
+.bd{background:rgba(122,143,174,.1);color:#7a8fae}.bd::before{background:#7a8fae}
+.c-danger{color:var(--danger);font-weight:500}
+.c-warn{color:var(--warn);font-weight:500}
+.c-muted{color:var(--hint)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="logo-box">IES</div>
+    <div>
+      <div class="hdr-title">Dashboard AFI — KPI Estatus Vehicular</div>
+      <div class="hdr-sub">Control vehicular · Activos Fijos | IES Internacional</div>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <span class="pill-date" id="dateLabel"></span>
+    <span class="pill-status loading" id="statusPill">⏳ Cargando datos...</span>
+  </div>
+</div>
+
+<div class="fbar" id="fbar">
+  <select id="fZona" onchange="go()"><option value="">Todas las zonas</option></select>
+  <select id="fDepto" onchange="go()"><option value="">Todos los departamentos</option></select>
+  <select id="fVeh" onchange="go()"><option value="">Todos los vehículos</option></select>
+  <select id="fEst" onchange="go()"><option value="">Todos los estatus</option></select>
+  <select id="fChofer" onchange="go()"><option value="">Todos los choferes</option></select>
+  <button class="btn-reset" onclick="resetAll()">&#8635; Limpiar</button>
+  <span class="fbar-count" id="recCount"></span>
+</div>
+
+<div class="breadcrumb" id="bcBar">
+  <span style="font-size:10px;color:var(--hint);margin-right:4px">Drill:</span>
+  <div id="bcItems" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"></div>
+  <button class="bc-clear" onclick="clearDrill()">&#10005; Limpiar drill</button>
+</div>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loadScreen">
+  <div class="spinner"></div>
+  <p>Cargando datos de flotilla...</p>
+  <small>Conectando con el archivo KPI_AFI_1.csv</small>
+</div>
+
+<!-- ERROR -->
+<div class="error-screen" id="errScreen">
+  <p>&#9888; No se pudo cargar el archivo de datos</p>
+  <small id="errMsg">Verifique que el archivo KPI_AFI_1.csv esté en el repositorio.</small>
+</div>
+
+<!-- DASHBOARD -->
+<div class="main" id="dash">
+
+  <div class="alerts" id="alerts"></div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><div class="kpi-lbl">Flotilla total</div><div class="kpi-n" id="kT">—</div><div class="kpi-sub">unidades</div></div>
+    <div class="kpi ok"><div class="kpi-lbl">En circulación</div><div class="kpi-n ok" id="kC">—</div><div class="kpi-sub">operativas</div></div>
+    <div class="kpi danger"><div class="kpi-lbl">Siniestradas</div><div class="kpi-n danger" id="kS">—</div><div class="kpi-sub">fuera de servicio</div></div>
+    <div class="kpi warn"><div class="kpi-lbl">En taller</div><div class="kpi-n warn" id="kTl">—</div><div class="kpi-sub">mantenimiento</div></div>
+    <div class="kpi info"><div class="kpi-lbl">Sin asignación</div><div class="kpi-n info" id="kSA">—</div><div class="kpi-sub">sin chofer</div></div>
+    <div class="kpi purple"><div class="kpi-lbl">Costo próx. servicios</div><div class="kpi-n purple" id="kCo" style="font-size:17px;margin-top:6px">—</div><div class="kpi-sub">estimado total</div></div>
+  </div>
+
+  <div class="g3">
+    <div class="cc clickable" id="cardEst">
+      <div class="cc-title"><div class="cc-title-l"><span class="cc-dot" style="background:var(--acc)"></span>Estatus operativo</div><span class="cc-hint">Clic para drill</span></div>
+      <div class="leg" id="legEst"></div>
+      <div style="position:relative;height:190px"><canvas id="cEst"></canvas></div>
+    </div>
+    <div class="cc clickable" id="cardZona">
+      <div class="cc-title"><div class="cc-title-l"><span class="cc-dot" style="background:var(--acc2)"></span>Unidades por zona</div><span class="cc-hint">Clic para drill</span></div>
+      <div style="position:relative;height:230px"><canvas id="cZona"></canvas></div>
+    </div>
+    <div class="cc clickable" id="cardDepto">
+      <div class="cc-title"><div class="cc-title-l"><span class="cc-dot" style="background:var(--warn)"></span>Unidades por departamento</div><span class="cc-hint">Clic para drill</span></div>
+      <div class="dbar-list" id="deptoBar"></div>
+    </div>
+  </div>
+
+  <div class="drill-panel" id="drillPanel">
+    <div class="drill-panel-title">
+      <span id="drillTitle">—</span>
+      <button class="drill-close" onclick="clearDrill()">&#10005;</button>
+    </div>
+    <div class="drill-grid" id="drillKPIs"></div>
+    <div class="drill-row">
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);margin-bottom:8px">Distribución interna</div>
+        <div style="position:relative;height:180px"><canvas id="drillChart1"></canvas></div>
+        <div class="leg" id="drillLeg1" style="margin-top:8px"></div>
+      </div>
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);margin-bottom:8px">Km al próximo servicio</div>
+        <div class="sbar-list" id="drillBars"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="cc">
+      <div class="cc-title"><div class="cc-title-l"><span class="cc-dot" style="background:var(--danger)"></span>Días restantes de póliza por vehículo</div></div>
+      <div class="sbar-list" id="polBars"></div>
+    </div>
+    <div class="cc">
+      <div class="cc-title"><div class="cc-title-l"><span class="cc-dot" style="background:var(--purple)"></span>Días restantes de licencia por chofer</div></div>
+      <div class="sbar-list" id="licBars"></div>
+    </div>
+  </div>
+
+  <div class="cc">
+    <div class="cc-title"><div class="cc-title-l"><span class="cc-dot" style="background:var(--acc)"></span>Km restantes al próximo servicio por vehículo</div></div>
+    <div style="position:relative;height:210px"><canvas id="cKm"></canvas></div>
+  </div>
+
+  <div class="g21">
+    <div class="cc">
+      <div class="cc-title"><div class="cc-title-l"><span class="cc-dot" style="background:var(--purple)"></span>Inversión — costo próx. servicio por departamento</div></div>
+      <div class="leg" id="legCosto"></div>
+      <div style="position:relative;height:200px"><canvas id="cCosto"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cc-title"><div class="cc-title-l"><span class="cc-dot" style="background:var(--acc2)"></span>Estatus por zona</div></div>
+      <div style="position:relative;height:220px"><canvas id="cZonaEst"></canvas></div>
+    </div>
+  </div>
+
+  <div class="tbl-card">
+    <div class="tbl-hdr">
+      <span class="tbl-hdr-title">Detalle completo de flotilla</span>
+      <span class="tbl-count" id="tCount"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Zona</th><th>Departamento</th><th>Vehículo</th>
+          <th>Estatus</th><th>Chofer</th>
+          <th>Km próx.</th><th>Costo est.</th>
+          <th>Días póliza</th><th>Días licencia</th>
+        </tr></thead>
+        <tbody id="tBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let RAW=[],F=[],CH={};
+let drillDim=null,drillVal=null;
+
+const C={
+  zona:'ZONA',depto:'DEPARTAMENTO',vh:'VEHICULO',
+  est:'ESTATUS_OPERATIVO_VEHICULO',chofer:'CHOFER',
+  km:'KM_ PROXIMO_SERVICIO_VEHICULO',
+  pol:'POLIZA_DIAS_VENCIMIENTO',
+  lic:'LICENCIA_DIAS_VENCIMIENTO',
+  costo:'COSTO_PROXIMO_SERVICIO_VEHICULO'
+};
+
+const E_COL={CIRCULACION:'#10b981',TALLER:'#f59e0b',SINIESTRADA:'#ef4444',RESGUARDO:'#2563eb',VACACIONES:'#8b5cf6'};
+const E_BADGE={CIRCULACION:'bc',TALLER:'bt',SINIESTRADA:'bs',RESGUARDO:'br',VACACIONES:'bv'};
+const PAL=['#2563eb','#10b981','#f59e0b','#ef4444','#8b5cf6','#f97316','#ec4899','#14b8a6','#84cc16','#0ea5e9','#a78bfa','#fb7185'];
+
+function pn(v){
+  if(v===null||v===undefined||String(v).trim()==='')return null;
+  if(String(v).toUpperCase()==='PERMANENTE')return 9999;
+  const x=parseFloat(String(v).replace(/,/g,''));
+  return isNaN(x)?null:x;
+}
+function cur(v){return v===null?'—':'$'+Math.round(v).toLocaleString('es-MX');}
+function isSinA(r){return (r[C.chofer]||'').toUpperCase().includes('SIN ASIG');}
+function cnt(arr,k){const m={};arr.forEach(r=>{const x=r[k]||'—';m[x]=(m[x]||0)+1;});return m;}
+function sumBy(arr,kk,vk){const m={};arr.forEach(r=>{const x=r[kk]||'—';const v=pn(r[vk]);if(v!==null&&v!==9999)m[x]=(m[x]||0)+v;});return m;}
+function dc(id){if(CH[id]){CH[id].destroy();delete CH[id];}}
+
+document.getElementById('dateLabel').textContent=
+  new Date().toLocaleDateString('es-MX',{weekday:'short',year:'numeric',month:'long',day:'numeric'});
+
+/* ── AUTO-LOAD CSV FROM SAME FOLDER ── */
+function autoLoad(){
+  const csvUrl='KPI_AFI_1.csv?nocache='+Date.now();
+  fetch(csvUrl)
+    .then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.text();
+    })
+    .then(text=>{
+      Papa.parse(text,{header:true,skipEmptyLines:true,complete(res){
+        RAW=res.data.map(row=>{const o={};Object.keys(row).forEach(k=>{o[k.trim()]=row[k];});return o;});
+        F=[...RAW];
+        fillSelects();
+        document.getElementById('loadScreen').style.display='none';
+        document.getElementById('dash').classList.add('show');
+        document.getElementById('fbar').classList.add('show');
+        const sp=document.getElementById('statusPill');
+        sp.textContent='✓ '+RAW.length+' unidades cargadas';
+        sp.className='pill-status ok';
+        render();
+      }});
+    })
+    .catch(err=>{
+      document.getElementById('loadScreen').style.display='none';
+      document.getElementById('errScreen').style.display='flex';
+      document.getElementById('errMsg').textContent='Error: '+err.message+'. Verifique que KPI_AFI_1.csv esté en el repositorio.';
+      const sp=document.getElementById('statusPill');
+      sp.textContent='⚠ Error al cargar';
+      sp.className='pill-status err';
+    });
+}
+
+function fillSelects(){
+  const defs={fZona:C.zona,fDepto:C.depto,fVeh:C.vh,fEst:C.est,fChofer:C.chofer};
+  Object.entries(defs).forEach(([id,col])=>{
+    const el=document.getElementById(id);
+    const vals=[...new Set(RAW.map(r=>r[col]||'').filter(Boolean))].sort();
+    el.innerHTML='<option value="">'+el.options[0].text+'</option>';
+    vals.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);});
+  });
+}
+
+function go(){
+  const z=document.getElementById('fZona').value;
+  const d=document.getElementById('fDepto').value;
+  const v=document.getElementById('fVeh').value;
+  const e=document.getElementById('fEst').value;
+  const c=document.getElementById('fChofer').value;
+  F=RAW.filter(r=>(!z||r[C.zona]===z)&&(!d||r[C.depto]===d)&&(!v||r[C.vh]===v)&&(!e||r[C.est]===e)&&(!c||r[C.chofer]===c));
+  render();
+}
+
+function resetAll(){
+  ['fZona','fDepto','fVeh','fEst','fChofer'].forEach(id=>document.getElementById(id).value='');
+  clearDrill();F=[...RAW];render();
+}
+
+function applyDrill(dim,val){
+  if(drillDim===dim&&drillVal===val){clearDrill();return;}
+  drillDim=dim;drillVal=val;
+  updateBreadcrumb();renderDrillPanel();renderAll();
+}
+
+function clearDrill(){
+  drillDim=null;drillVal=null;
+  document.getElementById('drillPanel').classList.remove('show');
+  document.getElementById('bcBar').classList.remove('show');
+  document.getElementById('bcItems').innerHTML='';
+  document.querySelectorAll('.cc.active-drill').forEach(el=>el.classList.remove('active-drill'));
+  dc('drillChart1');renderAll();
+}
+
+function drillData(){
+  if(!drillDim||!drillVal)return F;
+  return F.filter(r=>r[drillDim]===drillVal);
+}
+
+function updateBreadcrumb(){
+  const dl={[C.est]:'Estatus',[C.zona]:'Zona',[C.depto]:'Departamento'};
+  document.getElementById('bcItems').innerHTML=
+    `<span class="bc-tag" onclick="clearDrill()"><span>${dl[drillDim]||drillDim}: ${drillVal}</span><span style="font-size:13px">&#10005;</span></span>`;
+  document.getElementById('bcBar').classList.add('show');
+}
+
+function renderDrillPanel(){
+  const dd=drillData();
+  const dl={[C.est]:'Estatus',[C.zona]:'Zona',[C.depto]:'Departamento'};
+  document.getElementById('drillPanel').classList.add('show');
+  document.getElementById('drillTitle').textContent=`Drill — ${dl[drillDim]||drillDim}: ${drillVal}`;
+  const m=cnt(dd,C.est);
+  const sinA=dd.filter(isSinA).length;
+  const totalC=dd.reduce((s,r)=>{const v=pn(r[C.costo]);return s+(v&&v!==9999?v:0);},0);
+  const pol30=dd.filter(r=>{const v=pn(r[C.pol]);return v!==null&&v!==9999&&v<=30;}).length;
+  document.getElementById('drillKPIs').innerHTML=`
+    <div class="drill-kpi"><div class="drill-kpi-lbl">Unidades</div><div class="drill-kpi-val" style="color:var(--text)">${dd.length}</div></div>
+    <div class="drill-kpi"><div class="drill-kpi-lbl">Circulación</div><div class="drill-kpi-val" style="color:var(--circ)">${m['CIRCULACION']||0}</div></div>
+    <div class="drill-kpi"><div class="drill-kpi-lbl">Siniestradas</div><div class="drill-kpi-val" style="color:var(--danger)">${m['SINIESTRADA']||0}</div></div>
+    <div class="drill-kpi"><div class="drill-kpi-lbl">Taller</div><div class="drill-kpi-val" style="color:var(--warn)">${m['TALLER']||0}</div></div>
+    <div class="drill-kpi"><div class="drill-kpi-lbl">Sin asignación</div><div class="drill-kpi-val" style="color:var(--acc)">${sinA}</div></div>
+    <div class="drill-kpi"><div class="drill-kpi-lbl">Pólizas ≤30d</div><div class="drill-kpi-val" style="color:${pol30>0?'var(--danger)':'var(--circ)'}">${pol30}</div></div>
+    <div class="drill-kpi"><div class="drill-kpi-lbl">Costo estimado</div><div class="drill-kpi-val" style="color:var(--purple);font-size:14px;margin-top:4px">${cur(totalC)}</div></div>`;
+  dc('drillChart1');
+  let innerDim=drillDim===C.est?C.zona:C.est;
+  const mIn=cnt(dd,innerDim);
+  const labIn=Object.keys(mIn),vIn=labIn.map(k=>mIn[k]);
+  const cIn=innerDim===C.est?labIn.map(k=>E_COL[k]||'#7a8fae'):PAL;
+  CH.drillChart1=new Chart(document.getElementById('drillChart1'),{
+    type:'doughnut',
+    data:{labels:labIn,datasets:[{data:vIn,backgroundColor:cIn,borderWidth:0,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw}`}}}}
+  });
+  document.getElementById('drillLeg1').innerHTML=labIn.map((l,i)=>
+    `<span class="leg-i"><span class="leg-sq" style="background:${Array.isArray(cIn)?cIn[i%cIn.length]:cIn}"></span>${l} (${vIn[i]})</span>`).join('');
+  const sorted=[...dd].filter(r=>pn(r[C.km])!==null&&pn(r[C.km])>=0).sort((a,b)=>pn(a[C.km])-pn(b[C.km]));
+  const maxKm=Math.max(...sorted.map(r=>pn(r[C.km])),1);
+  document.getElementById('drillBars').innerHTML=sorted.length?sorted.map(r=>{
+    const v=pn(r[C.km]);const col=v<=500?'#ef4444':v<=2000?'#f59e0b':'#2563eb';
+    return `<div class="sbar-row"><div class="sbar-lbl" title="${r[C.vh]}">${r[C.vh]}</div><div class="sbar-track"><div class="sbar-fill" style="width:${Math.round(v/maxKm*100)}%;background:${col}"></div></div><div class="sbar-val" style="color:${col}">${v.toLocaleString()}km</div></div>`;
+  }).join(''):'<div style="color:var(--hint);font-size:11px;padding:8px">Sin datos de km</div>';
+  document.getElementById('drillPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function render(){renderAll();}
+function renderAll(){
+  const dd=drillData();
+  document.getElementById('recCount').textContent=F.length+' registros'+(drillDim?` · drill: ${dd.length}`:'');
+  kpis(dd);alertas(dd);estChart(dd);zonaChart(dd);deptoBarFn(dd);
+  polBars(dd);licBars(dd);kmChart(dd);costoChart(dd);zonaEstChart(dd);tabla(dd);
+}
+
+function kpis(dd){
+  const m=cnt(dd,C.est);const sinA=dd.filter(isSinA).length;
+  const total=dd.reduce((s,r)=>{const v=pn(r[C.costo]);return s+(v&&v!==9999?v:0);},0);
+  document.getElementById('kT').textContent=dd.length;
+  document.getElementById('kC').textContent=m['CIRCULACION']||0;
+  document.getElementById('kS').textContent=m['SINIESTRADA']||0;
+  document.getElementById('kTl').textContent=m['TALLER']||0;
+  document.getElementById('kSA').textContent=sinA;
+  document.getElementById('kCo').textContent=cur(total);
+  document.getElementById('tCount').textContent=dd.length+' unidades';
+}
+
+function alertas(dd){
+  const m=cnt(dd,C.est);const sinA=dd.filter(isSinA).length;
+  const pol30=dd.filter(r=>{const v=pn(r[C.pol]);return v!==null&&v!==9999&&v<=30;}).length;
+  const lic30=dd.filter(r=>{const v=pn(r[C.lic]);return v!==null&&v!==9999&&v<=30&&!isSinA(r);}).length;
+  const licNeg=dd.filter(r=>{const v=pn(r[C.lic]);return v!==null&&v<0;}).length;
+  let h=`<span class="apill ok">&#10003; ${m['CIRCULACION']||0} en circulación</span>`;
+  if(m['SINIESTRADA']>0)h+=`<span class="apill danger">&#9888; ${m['SINIESTRADA']} siniestrada${m['SINIESTRADA']>1?'s':''}</span>`;
+  if(m['TALLER']>0)h+=`<span class="apill warn">&#9965; ${m['TALLER']} en taller</span>`;
+  if(pol30>0)h+=`<span class="apill danger">&#9888; ${pol30} póliza${pol30>1?'s':''} ≤30d</span>`;
+  if(lic30>0)h+=`<span class="apill warn">&#9888; ${lic30} licencia${lic30>1?'s':''} ≤30d</span>`;
+  if(licNeg>0)h+=`<span class="apill danger">&#9888; ${licNeg} licencia${licNeg>1?'s':''} VENCIDA${licNeg>1?'S':''}</span>`;
+  if(sinA>0)h+=`<span class="apill info">&#9679; ${sinA} sin asignación</span>`;
+  document.getElementById('alerts').innerHTML=h;
+}
+
+function estChart(dd){
+  dc('est');const m=cnt(dd,C.est);const labels=Object.keys(m),vals=labels.map(k=>m[k]);
+  const cols=labels.map(k=>E_COL[k]||'#7a8fae');
+  const card=document.getElementById('cardEst');
+  if(drillDim===C.est)card.classList.add('active-drill');else card.classList.remove('active-drill');
+  CH.est=new Chart(document.getElementById('cEst'),{type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:cols,borderWidth:0,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw}`}}},
+      onClick(e,els){if(!els.length)return;applyDrill(C.est,labels[els[0].index]);}}});
+  document.getElementById('legEst').innerHTML=labels.map((l,i)=>
+    `<span class="leg-i" style="cursor:pointer;opacity:${drillDim===C.est&&drillVal!==l?.4:1}" onclick="applyDrill('${C.est}','${l}')">
+    <span class="leg-sq" style="background:${cols[i]}"></span>${l} (${vals[i]})</span>`).join('');
+}
+
+function zonaChart(dd){
+  dc('zona');const m=cnt(dd,C.zona);const labels=Object.keys(m),vals=labels.map(k=>m[k]);
+  const card=document.getElementById('cardZona');
+  if(drillDim===C.zona)card.classList.add('active-drill');else card.classList.remove('active-drill');
+  const cols=labels.map(l=>drillDim===C.zona&&drillVal!==l?'rgba(37,99,235,.25)':PAL[labels.indexOf(l)%PAL.length]);
+  CH.zona=new Chart(document.getElementById('cZona'),{type:'bar',
+    data:{labels,datasets:[{data:vals,backgroundColor:cols,borderRadius:5,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} unidades`}}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#7a8fae',font:{size:11}}},
+              y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#7a8fae',stepSize:1},beginAtZero:true}},
+      onClick(e,els){if(!els.length)return;applyDrill(C.zona,labels[els[0].index]);}}});
+}
+
+function deptoBarFn(dd){
+  const m=cnt(dd,C.depto);const sorted=Object.entries(m).sort((a,b)=>b[1]-a[1]);const max=sorted[0]?.[1]||1;
+  const card=document.getElementById('cardDepto');
+  if(drillDim===C.depto)card.classList.add('active-drill');else card.classList.remove('active-drill');
+  document.getElementById('deptoBar').innerHTML=sorted.map(([d,n],i)=>{
+    const isDrilled=drillDim===C.depto&&drillVal===d;const isOther=drillDim===C.depto&&drillVal!==d;
+    const safe=d.replace(/'/g,"\\'");
+    return `<div class="dbar-row${isDrilled?' selected':''}" onclick="applyDrill('${C.depto}','${safe}')">
+      <div class="dbar-lbl" title="${d}">${d}</div>
+      <div class="dbar-track"><div class="dbar-fill" style="width:${Math.round(n/max*100)}%;background:${PAL[i%PAL.length]};opacity:${isOther?.3:1}"></div></div>
+      <div class="dbar-n" style="opacity:${isOther?.4:1}">${n}</div></div>`;
+  }).join('');
+}
+
+function polBars(dd){
+  const sorted=[...dd].filter(r=>pn(r[C.pol])!==null).sort((a,b)=>pn(a[C.pol])-pn(b[C.pol]));
+  const maxv=Math.max(...sorted.map(r=>{const v=pn(r[C.pol]);return v===9999?0:v;}),1);
+  document.getElementById('polBars').innerHTML=sorted.map(r=>{
+    const v=pn(r[C.pol]);const pct=v===9999?100:Math.round(v/maxv*100);
+    const col=v<=30?'#ef4444':v<=90?'#f59e0b':'#10b981';
+    return `<div class="sbar-row"><div class="sbar-lbl" title="${r[C.vh]}">${r[C.vh]}</div><div class="sbar-track"><div class="sbar-fill" style="width:${pct}%;background:${col}"></div></div><div class="sbar-val" style="color:${col}">${v===9999?'PERM':v+'d'}</div></div>`;
+  }).join('');
+}
+
+function licBars(dd){
+  const sorted=[...dd].filter(r=>!isSinA(r)&&pn(r[C.lic])!==null).sort((a,b)=>pn(a[C.lic])-pn(b[C.lic]));
+  const maxv=Math.max(...sorted.map(r=>{const v=pn(r[C.lic]);return v===9999?0:Math.max(v,0);}),1);
+  document.getElementById('licBars').innerHTML=sorted.map(r=>{
+    const v=pn(r[C.lic]);const pct=v===9999?100:v<=0?2:Math.round(Math.max(v,0)/maxv*100);
+    const col=v<0?'#ef4444':v<=30?'#ef4444':v<=90?'#f59e0b':'#8b5cf6';
+    const nom=(r[C.chofer]||'—').split(' ').slice(0,2).join(' ');
+    return `<div class="sbar-row"><div class="sbar-lbl" title="${r[C.chofer]}">${nom}</div><div class="sbar-track"><div class="sbar-fill" style="width:${pct}%;background:${col}"></div></div><div class="sbar-val" style="color:${col}">${v===9999?'PERM':v+'d'}</div></div>`;
+  }).join('');
+}
+
+function kmChart(dd){
+  dc('km');const sorted=[...dd].filter(r=>pn(r[C.km])!==null&&pn(r[C.km])>=0).sort((a,b)=>pn(a[C.km])-pn(b[C.km]));
+  const labels=sorted.map(r=>r[C.vh]),vals=sorted.map(r=>pn(r[C.km]));
+  const cols=vals.map(v=>v<=500?'#ef4444':v<=2000?'#f59e0b':'#2563eb');
+  CH.km=new Chart(document.getElementById('cKm'),{type:'bar',
+    data:{labels,datasets:[{data:vals,backgroundColor:cols,borderRadius:3,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.toLocaleString()} km`}}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#7a8fae',font:{size:9},maxRotation:65,autoSkip:false}},
+              y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#7a8fae',font:{size:10}},beginAtZero:true}}}});
+}
+
+function costoChart(dd){
+  dc('costo');const m=sumBy(dd,C.depto,C.costo);const sorted=Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  const labels=sorted.map(s=>s[0]),vals=sorted.map(s=>s[1]);const cols=labels.map((_,i)=>PAL[i%PAL.length]);
+  CH.costo=new Chart(document.getElementById('cCosto'),{type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:cols,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: $${Math.round(c.raw).toLocaleString('es-MX')}`}}}}});
+  document.getElementById('legCosto').innerHTML=labels.map((l,i)=>
+    `<span class="leg-i"><span class="leg-sq" style="background:${cols[i]}"></span>${l} ${cur(vals[i])}</span>`).join('');
+}
+
+function zonaEstChart(dd){
+  dc('zonaEst');const zonas=[...new Set(dd.map(r=>r[C.zona]||'—'))];
+  const estats=[...new Set(dd.map(r=>r[C.est]||'—'))];
+  const datasets=estats.map((e,i)=>({label:e,data:zonas.map(z=>dd.filter(r=>r[C.zona]===z&&r[C.est]===e).length),backgroundColor:E_COL[e]||PAL[i%PAL.length],borderRadius:3,stack:'s'}));
+  CH.zonaEst=new Chart(document.getElementById('cZonaEst'),{type:'bar',data:{labels:zonas,datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#7a8fae',font:{size:10,family:'IBM Plex Sans'},boxWidth:10,padding:8}}},
+      scales:{x:{stacked:true,grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#7a8fae',font:{size:11}}},
+              y:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#7a8fae',stepSize:1},beginAtZero:true}}}});
+}
+
+function tabla(dd){
+  document.getElementById('tBody').innerHTML=dd.map(r=>{
+    const pol=pn(r[C.pol]),lic=pn(r[C.lic]),km=pn(r[C.km]);
+    const pCls=pol!==null&&pol!==9999&&pol<=30?'c-danger':pol!==null&&pol!==9999&&pol<=90?'c-warn':'';
+    const lCls=lic!==null&&lic<0?'c-danger':lic!==null&&lic!==9999&&lic<=30?'c-danger':lic!==null&&lic!==9999&&lic<=90?'c-warn':'';
+    const badge=E_BADGE[r[C.est]]||'bd';
+    return `<tr><td>${r[C.zona]||'—'}</td><td>${r[C.depto]||'—'}</td><td style="font-weight:500">${r[C.vh]||'—'}</td><td><span class="badge ${badge}">${r[C.est]||'—'}</span></td><td class="${isSinA(r)?'c-danger':''}">${r[C.chofer]||'—'}</td><td class="${km!==null&&km<=500?'c-danger':km!==null&&km<=2000?'c-warn':'c-muted'}">${km!==null?km.toLocaleString()+' km':'—'}</td><td class="c-muted">${cur(pn(r[C.costo]))}</td><td class="${pCls}">${pol===9999?'PERM':pol!==null?pol+'d':'—'}</td><td class="${lCls}">${lic===9999?'PERM':lic!==null?lic+'d':'—'}</td></tr>`;
+  }).join('');
+}
+
+window.addEventListener('load', autoLoad);
+</script>
+</body>
+</html>
